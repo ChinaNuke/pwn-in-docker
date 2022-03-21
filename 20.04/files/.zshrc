@@ -47,8 +47,8 @@ zstyle ':completion:*:kill:*' command 'ps -u $USER -o pid,%cpu,tty,cputime,cmd'
 # Custom settings
 # ---------------
 
-source ~/.zsh-theme-and-plugins/powerlevel10k/powerlevel10k.zsh-theme                                                                                                    
-source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh                                                                                                           
+source ~/.zsh-theme-and-plugins/powerlevel10k/powerlevel10k.zsh-theme
+source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 source ~/.zsh-theme-and-plugins/zsh-history-substring-search/zsh-history-substring-search.zsh
 bindkey "$terminfo[kcuu1]" history-substring-search-up
@@ -73,6 +73,19 @@ if [ -x /usr/bin/dircolors ]; then
 fi
 
 alias ll='ls -lFh'
+alias gdb='gdb --quiet'
+
+# Proxy setting function
+setproxy() {
+    export http_proxy="http://172.17.0.1:8080"
+    export https_proxy="$http_proxy"
+    echo "Proxy is set to $http_proxy."
+}
+unsetproxy() {
+    unset http_proxy
+    unset https_proxy
+    echo "Proxy is unset."
+}
 
 # if [ -x "$(command -v tmux)" ] && [ -z "${TMUX}" ]; then
 #     { exec tmux new -As main; } >/dev/null 2>&1
