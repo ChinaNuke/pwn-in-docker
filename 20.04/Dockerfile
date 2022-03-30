@@ -1,6 +1,6 @@
 # Usage:
 #   $ sudo docker build -t ctf20-image --build-arg http_proxy=http://172.17.0.1:8080 --build-arg https_proxy=http://172.17.0.1:8080 .
-#   $ sudo docker run -it --name ctf20 -v "$PWD/work":/home/ctf/work ctf20-image
+#   $ sudo docker run -it --name ctf20 --hostname ctf -v "$PWD/work":/home/ctf/work ctf20-image
 #   $ sudo docker start -ai ctf20
 
 FROM ubuntu:20.04
@@ -58,6 +58,15 @@ RUN wget -O ~/.gdbinit-gef.py -q https://gef.blah.cat/py && \
     # Optional dependencies
     pip3 install --no-cache-dir capstone unicorn keystone-engine ropper && \
     echo source ~/.gdbinit-gef.py >> ~/.gdbinit
+
+# Install patchelf from source
+RUN sudo apt install -y autoconf && \
+    git clone --depth=1 https://github.com/NixOS/patchelf.git && \
+    cd patchelf && \
+    ./bootstrap.sh && ./configure && \
+    make -j `nproc` && make check && \
+    sudo make install && \
+    cd .. && rm -rf patchelf
 
 # Install binwalk
 RUN git clone --depth=1 https://github.com/devttys0/binwalk.git ~/.binwalk && \

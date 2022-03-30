@@ -65,9 +65,9 @@ if [ -x /usr/bin/dircolors ]; then
     #alias dir='dir --color=auto'
     #alias vdir='vdir --color=auto'
 
-    alias grep='grep --color=auto'
-    alias fgrep='fgrep --color=auto'
-    alias egrep='egrep --color=auto'
+    alias grep='grep --color=auto --exclude-dir={.bzr,CVS,.git,.hg,.svn,.idea,.tox}'
+    alias fgrep='fgrep --color=auto --exclude-dir={.bzr,CVS,.git,.hg,.svn,.idea,.tox}'
+    alias egrep='egrep --color=auto --exclude-dir={.bzr,CVS,.git,.hg,.svn,.idea,.tox}'
 
     alias diff='diff --color=auto'
 fi
@@ -86,6 +86,9 @@ unsetproxy() {
     unset https_proxy
     echo "Proxy is unset."
 }
+
+# Uncomment to enable proxy by default
+# setproxy > /dev/null
 
 # if [ -x "$(command -v tmux)" ] && [ -z "${TMUX}" ]; then
 #     { exec tmux new -As main; } >/dev/null 2>&1
