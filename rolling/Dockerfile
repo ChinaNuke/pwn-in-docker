@@ -13,7 +13,8 @@ RUN sed -i "s/http:\/\/archive.ubuntu.com/http:\/\/mirrors.tuna.tsinghua.edu.cn/
     export DEBIAN_FRONTEND=noninteractive && \
     # Unminimize the ubuntu installation
     yes | unminimize && \
-    apt install -y sudo man-db locales file \
+    apt install -y sudo man-db locales \
+                   file iputils-ping \
                    vim tmux git gdb wget curl python3 python3-pip \
                    zsh zsh-autosuggestions zsh-syntax-highlighting
 
@@ -67,6 +68,10 @@ RUN sudo apt install -y autoconf && \
     make -j `nproc` && make check && \
     sudo make install && \
     cd .. && rm -rf patchelf
+
+# Install one_gadget and seccomp-tools
+RUN sudo apt install -y ruby-full && \
+    sudo gem install one_gadget seccomp-tools
 
 # Install binwalk
 # FIXME: Cannot compile on 21.10 due to ‘if’ clause does not guard

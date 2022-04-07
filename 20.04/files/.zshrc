@@ -74,6 +74,8 @@ fi
 
 alias ll='ls -lFh'
 alias gdb='gdb --quiet'
+# alias ld223='~/work/glibc-versions/2.23/x64_notcache/lib/ld-2.23.so'
+# alias ld227='~/work/glibc-versions/2.27/x64_tcache/lib/ld-2.27.so'
 
 # Proxy setting function
 setproxy() {

@@ -14,6 +14,8 @@ RUN sed -i "s/http:\/\/archive.ubuntu.com/http:\/\/mirrors.tuna.tsinghua.edu.cn/
     # Unminimize the ubuntu installation
     yes | unminimize && \
     apt install -y sudo man-db locales \
+                   # for `ping` and `ip` command
+                   iputils-ping iproute2 \
                    vim tmux git gdb wget curl python3 python3-pip \
                    zsh zsh-autosuggestions zsh-syntax-highlighting
 
@@ -67,6 +69,10 @@ RUN sudo apt install -y autoconf && \
     make -j `nproc` && make check && \
     sudo make install && \
     cd .. && rm -rf patchelf
+
+# Install one_gadget and seccomp-tools
+RUN sudo apt install -y ruby-full && \
+    sudo gem install one_gadget seccomp-tools
 
 # Install binwalk
 RUN git clone --depth=1 https://github.com/devttys0/binwalk.git ~/.binwalk && \
