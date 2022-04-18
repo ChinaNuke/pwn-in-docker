@@ -7,7 +7,7 @@ FROM ubuntu:rolling
 MAINTAINER ChinaNuke <chinanuke@nuke666.cn>
 
 # Changing the apt source to speed up the download process
-RUN sed -i "s/http:\/\/archive.ubuntu.com/http:\/\/mirrors.tuna.tsinghua.edu.cn/g" /etc/apt/sources.list && \
+RUN sed -i -E "s/http:\/\/(archive|security).ubuntu.com/http:\/\/mirrors.tuna.tsinghua.edu.cn/g" /etc/apt/sources.list && \
     apt update && \
     # Avoid user interaction
     export DEBIAN_FRONTEND=noninteractive && \
@@ -16,12 +16,17 @@ RUN sed -i "s/http:\/\/archive.ubuntu.com/http:\/\/mirrors.tuna.tsinghua.edu.cn/
     apt install -y sudo man-db locales \
                    file iputils-ping \
                    vim tmux git gdb wget curl python3 python3-pip \
-                   zsh zsh-autosuggestions zsh-syntax-highlighting
+                   zsh zsh-autosuggestions zsh-syntax-highlighting \
+                   # required if you want to compile or run 32-bit programs
+                   gcc-multilib g++-multilib
 
-# Set the locale, required by some programs
+# Set the locale, which is required by some programs
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
     locale-gen
 ENV LANG en_US.UTF-8
+
+# Set timezone to display the right time.
+ENV TZ Asia/Shanghai
 
 # Add an unprivilaged user, and all subsequent operations are performed as this
 # unprivileged user.
@@ -46,6 +51,9 @@ RUN pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple &&
 
 # Copy all config files to home directory
 COPY --chown=ctf files/ /home/ctf
+
+# Install ipython
+RUN pip3 install --no-cache-dir ipython
 
 # Install pwntools
 RUN pip3 install --no-cache-dir --upgrade pwntools==4.8.0b0
