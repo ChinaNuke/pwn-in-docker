@@ -56,11 +56,11 @@ COPY --chown=ctf files/ /home/ctf
 RUN pip3 install --no-cache-dir ipython
 
 # Install pwntools
-RUN pip3 install --no-cache-dir --upgrade pwntools==4.8.0b0
+RUN pip3 install --no-cache-dir --no-warn-script-location --upgrade pwntools==4.8.0b0
 
 # Install pwndbg
 # RUN git clone --depth=1 https://github.com/pwndbg/pwndbg.git ~/.pwndbg && \
-#     cd ~/.pwndbg && ./setup.sh
+#     cd ~/.pwndbg && ./setup.sh --user
 
 # Install gef
 RUN wget -O ~/.gdbinit-gef.py -q https://gef.blah.cat/py && \
@@ -79,6 +79,7 @@ RUN sudo apt install -y autoconf && \
 
 # Install one_gadget and seccomp-tools
 RUN sudo apt install -y ruby-full && \
+    # FIXME: it's not secure to install with `sudo`
     sudo gem install one_gadget seccomp-tools
 
 # Install binwalk
@@ -86,7 +87,7 @@ RUN sudo apt install -y ruby-full && \
 # RUN git clone --depth=1 https://github.com/devttys0/binwalk.git ~/.binwalk && \
 #     cd ~/.binwalk && \
 #     sed -i '/REQUIRED_UTILS="wget tar python"/c\REQUIRED_UTILS="wget tar python3"' deps.sh && \
-#     sudo ./deps.sh --yes && \
+#     ./deps.sh --yes && \
 #     sudo python3 ./setup.py install
 
 # Clear the cache and we do not need `NOPASSWD` anymore
