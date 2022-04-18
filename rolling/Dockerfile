@@ -79,6 +79,7 @@ RUN sudo apt install -y autoconf && \
 
 # Install one_gadget and seccomp-tools
 RUN sudo apt install -y ruby-full && \
+    sudo gem sources --add https://mirrors.tuna.tsinghua.edu.cn/rubygems/ --remove https://rubygems.org/ && \
     # FIXME: it's not secure to install with `sudo`
     sudo gem install one_gadget seccomp-tools
 
