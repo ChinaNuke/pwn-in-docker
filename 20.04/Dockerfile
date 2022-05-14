@@ -55,6 +55,11 @@ RUN pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple &&
 # Copy all config files to home directory
 COPY --chown=ctf files/ /home/ctf
 
+# ----------------------------------------------------------
+# In the following part we will install commonly used tools,
+# feel free to comment out any of the tools you don't need.
+# ----------------------------------------------------------
+
 # Install ipython
 RUN pip3 install --no-cache-dir --no-warn-script-location ipython
 
@@ -63,7 +68,9 @@ RUN pip3 install --no-cache-dir --no-warn-script-location --upgrade pwntools==4.
 
 # Install pwndbg
 RUN git clone --depth=1 https://github.com/pwndbg/pwndbg.git ~/.pwndbg && \
-    cd ~/.pwndbg && ./setup.sh --user
+    cd ~/.pwndbg && ./setup.sh --user && \
+    # Disable pwndbg by default
+    sed -i "/pwndbg\/gdbinit.py/s/^/# /" ~/.gdbinit
 
 # Install gef (stable version)
 # RUN wget -O ~/.gdbinit-gef.py -q https://gef.blah.cat/py && \
@@ -76,7 +83,7 @@ RUN git clone --depth=1 https://github.com/pwndbg/pwndbg.git ~/.pwndbg && \
 RUN wget -O ~/.gdbinit-gef.py -q https://gef.blah.cat/dev && \
     # Optional dependencies
     pip3 install --no-cache-dir --no-warn-script-location capstone unicorn keystone-engine ropper && \
-    echo '# source ~/.gdbinit-gef.py' >> ~/.gdbinit && \
+    echo 'source ~/.gdbinit-gef.py' >> ~/.gdbinit && \
     # Optional gef-extras
     git clone --depth=1 --branch dev https://github.com/hugsy/gef-extras.git ~/.config/gef-extras && \
     gdb -q -ex "gef config gef.extra_plugins_dir '~/.config/gef-extras/scripts'" \
