@@ -57,6 +57,11 @@ bindkey "$terminfo[kcud1]" history-substring-search-down
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
+# Shortcuts to move between words.
+# https://stackoverflow.com/questions/12382499/looking-for-altleftarrowkey-solution-in-zsh
+bindkey "^[[1;3C" forward-word # Alt + ->(right arrow)
+bindkey "^[[1;3D" backward-word # Alt + <-(left arrow)
+
 export PATH="$PATH:$HOME/bin:$HOME/.local/bin"
 
 if [ -x /usr/bin/dircolors ]; then
@@ -74,8 +79,15 @@ fi
 
 alias ll='ls -lFh'
 alias gdb='gdb --quiet'
+alias ipy='ipython -i -c "from pwn import *"'
 # alias ld223='~/work/glibc-versions/2.23/x64_notcache/lib/ld-2.23.so'
 # alias ld227='~/work/glibc-versions/2.27/x64_tcache/lib/ld-2.27.so'
+
+# Really clear the tmux panel
+# https://stackoverflow.com/questions/10543684/how-can-i-clear-scrollback-buffer-in-tmux
+if [[ $TMUX ]]; then
+    alias clear='clear && tmux clear-history'
+fi
 
 # Proxy setting function
 setproxy() {

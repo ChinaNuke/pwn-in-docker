@@ -14,8 +14,10 @@ RUN sed -i -E "s/http:\/\/(archive|security).ubuntu.com/http:\/\/mirrors.tuna.ts
     # Unminimize the ubuntu installation
     yes | unminimize && \
     apt install -y sudo man-db locales \
-                   # for `ping` and `ip` command
-                   iputils-ping iproute2 \
+                   # for `ping`, `ip` and `nc` command
+                   iputils-ping iproute2 netcat \
+                   # for `killall` and `strace` command
+                   psmisc strace \
                    vim tmux git gdb wget curl python3 python3-pip \
                    zsh zsh-autosuggestions zsh-syntax-highlighting \
                    # required if you want to compile or run 32-bit programs
@@ -54,27 +56,43 @@ RUN pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple &&
 COPY --chown=ctf files/ /home/ctf
 
 # Install ipython
-RUN pip3 install --no-cache-dir ipython
+RUN pip3 install --no-cache-dir --no-warn-script-location ipython
 
 # Install pwntools
 RUN pip3 install --no-cache-dir --no-warn-script-location --upgrade pwntools==4.8.0b0
 
 # Install pwndbg
-# RUN git clone --depth=1 https://github.com/pwndbg/pwndbg.git ~/.pwndbg && \
-#     cd ~/.pwndbg && ./setup.sh --user
+RUN git clone --depth=1 https://github.com/pwndbg/pwndbg.git ~/.pwndbg && \
+    cd ~/.pwndbg && ./setup.sh --user
 
-# Install gef
-RUN wget -O ~/.gdbinit-gef.py -q https://gef.blah.cat/py && \
+# Install gef (stable version)
+# RUN wget -O ~/.gdbinit-gef.py -q https://gef.blah.cat/py && \
+#     # Optional dependencies
+#     pip3 install --no-cache-dir --no-warn-script-location capstone unicorn keystone-engine ropper && \
+#     echo source ~/.gdbinit-gef.py >> ~/.gdbinit
+
+# Install gef (dev version)
+# https://github.com/hugsy/gef-extras/issues/48
+RUN wget -O ~/.gdbinit-gef.py -q https://gef.blah.cat/dev && \
     # Optional dependencies
-    pip3 install --no-cache-dir capstone unicorn keystone-engine ropper && \
-    echo source ~/.gdbinit-gef.py >> ~/.gdbinit
+    pip3 install --no-cache-dir --no-warn-script-location capstone unicorn keystone-engine ropper && \
+    echo '# source ~/.gdbinit-gef.py' >> ~/.gdbinit && \
+    # Optional gef-extras
+    git clone --depth=1 --branch dev https://github.com/hugsy/gef-extras.git ~/.config/gef-extras && \
+    gdb -q -ex "gef config gef.extra_plugins_dir '~/.config/gef-extras/scripts'" \
+        -ex "gef config pcustom.struct_path '~/.config/gef-extras/structs'" \
+        -ex "gef config syscall-args.path '~/.config/gef-extras/syscall-tables'" \
+        -ex "gef config context.libc_args True" \
+        -ex "gef config context.libc_args_path '~/.config/gef-extras/glibc-function-args'" \
+        -ex 'gef save' \
+        -ex quit
 
 # Install patchelf from source
 RUN sudo apt install -y autoconf && \
     git clone --depth=1 https://github.com/NixOS/patchelf.git && \
     cd patchelf && \
     ./bootstrap.sh && ./configure && \
-    make -j `nproc` && make check && \
+    make -j `nproc` && \
     sudo make install && \
     cd .. && rm -rf patchelf
 
