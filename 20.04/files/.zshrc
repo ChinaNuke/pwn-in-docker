@@ -79,7 +79,7 @@ fi
 
 alias ll='ls -lFh'
 alias gdb='gdb --quiet'
-alias ipy='ipython -i -c "from pwn import *"'
+alias ipy='ipython --no-confirm-exit -i -c "from pwn import *"'
 # alias ld223='~/work/glibc-versions/2.23/x64_notcache/lib/ld-2.23.so'
 # alias ld227='~/work/glibc-versions/2.27/x64_tcache/lib/ld-2.27.so'
 

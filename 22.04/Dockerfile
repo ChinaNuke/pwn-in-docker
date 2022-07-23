@@ -1,9 +1,9 @@
 # Usage:
-#   $ sudo docker build -t ctf20-image --build-arg http_proxy=http://172.17.0.1:8080 --build-arg https_proxy=http://172.17.0.1:8080 .
-#   $ sudo docker run -it --name ctf20 --hostname ctf -v "$PWD/work":/home/ctf/work ctf20-image
-#   $ sudo docker start -ai ctf20
+#   $ sudo docker build -t ctf22-image --build-arg http_proxy=http://172.17.0.1:8080 --build-arg https_proxy=http://172.17.0.1:8080 .
+#   $ sudo docker run -it --name ctf22 --hostname ctf -v "$PWD/work":/home/ctf/work ctf22-image
+#   $ sudo docker start -ai ctf22
 
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 MAINTAINER ChinaNuke <chinanuke@nuke666.cn>
 
 # Changing the apt source to speed up the download process
@@ -14,6 +14,8 @@ RUN sed -i -E "s/http:\/\/(archive|security).ubuntu.com/http:\/\/mirrors.tuna.ts
     # Unminimize the ubuntu installation
     yes | unminimize && \
     apt install -y sudo man-db locales \
+                   # for `file` command
+                   file \
                    # for `ping`, `ip` and `nc` command
                    iputils-ping iproute2 netcat \
                    # for `killall` and `strace` command
@@ -79,9 +81,17 @@ RUN git clone --depth=1 https://github.com/pwndbg/pwndbg.git ~/.pwndbg && \
 
 # Install gef (stable version)
 # RUN wget -O ~/.gdbinit-gef.py -q https://gef.blah.cat/py && \
-#     # Optional dependencies
-#     pip3 install --no-cache-dir --no-warn-script-location capstone unicorn keystone-engine ropper && \
-#     echo source ~/.gdbinit-gef.py >> ~/.gdbinit
+#     echo source ~/.gdbinit-gef.py >> ~/.gdbinit && \
+#     # Optional gef-extras
+#     git clone --depth=1 --branch main https://github.com/hugsy/gef-extras.git ~/.config/gef-extras && \
+#     pip3 install --no-cache-dir -r ~/.config/gef-extras/requirements.txt && \
+#     gdb -q -ex "gef config gef.extra_plugins_dir '~/.config/gef-extras/scripts'" \
+#         -ex "gef config pcustom.struct_path '~/.config/gef-extras/structs'" \
+#         -ex "gef config syscall-args.path '~/.config/gef-extras/syscall-tables'" \
+#         -ex "gef config context.libc_args True" \
+#         -ex "gef config context.libc_args_path '~/.config/gef-extras/glibc-function-args'" \
+#         -ex 'gef save' \
+#         -ex quit
 
 # Install gef (dev version)
 RUN wget -O ~/.gdbinit-gef.py -q https://gef.blah.cat/dev && \
@@ -118,6 +128,10 @@ RUN git clone --depth=1 https://github.com/devttys0/binwalk.git ~/.binwalk && \
     cd ~/.binwalk && \
     # Fix the python not found error.
     sed -i '/REQUIRED_UTILS="wget tar python"/cREQUIRED_UTILS="wget tar python3"' deps.sh && \
+    # Fix the "'if' clause does not guard" error.
+    # https://github.com/devttys0/sasquatch/pull/47
+    # https://github.com/ffontaine/binwalk/commit/ba8f5e3eaf3d701be8b2d9a49fd0b616d63c5f85
+    sed -i 's?(cd sasquatch \&\& \$SUDO ./build.sh)?(cd sasquatch \&\& wget https://github.com/devttys0/sasquatch/pull/47.patch -O - | patch -p1 \&\& \$SUDO ./build.sh)?' deps.sh && \
     ./deps.sh --yes && \
     sudo python3 ./setup.py install && \
     cd .. && sudo rm -rf .binwalk
