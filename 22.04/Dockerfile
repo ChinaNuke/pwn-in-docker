@@ -1,7 +1,11 @@
 # Usage:
 #   $ sudo docker build -t ctf22-image --build-arg http_proxy=http://172.17.0.1:8080 --build-arg https_proxy=http://172.17.0.1:8080 .
-#   $ sudo docker run -it --name ctf22 --hostname ctf -v "$PWD/work":/home/ctf/work ctf22-image
+#   $ sudo docker run --cap-add=SYS_PTRACE --security-opt seccomp=unconfined -it --name ctf22 --hostname ctf -v "$PWD/work":/home/ctf/work ctf22-image
 #   $ sudo docker start -ai ctf22
+# 
+# Note:
+#   - Add `--cap-add=SYS_PTRACE --security-opt seccomp=unconfined` for gdb to 
+#     debug running process.
 
 FROM ubuntu:22.04
 MAINTAINER ChinaNuke <chinanuke@nuke666.cn>
@@ -20,12 +24,13 @@ RUN sed -i -E "s/http:\/\/(archive|security).ubuntu.com/http:\/\/mirrors.tuna.ts
                    iputils-ping iproute2 netcat \
                    # for `killall` and `strace` command
                    psmisc strace \
-                   vim tmux git gdb wget curl python3 python3-pip \
+                   vim tmux git gdb gdb-multiarch wget curl python3 python3-pip \
                    zsh zsh-autosuggestions zsh-syntax-highlighting \
                    # required if you want to compile or run 32-bit programs
                    gcc-multilib g++-multilib \
                    # for debug symbols
-                   libc6-dbg
+                   libc6-dbg && \
+    rm -rf /var/lib/apt/lists/*
 
 # Set the locale, which is required by some programs
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
@@ -53,7 +58,8 @@ RUN mkdir ~/.zsh-theme-and-plugins && \
     git clone --depth=1 https://github.com/zsh-users/zsh-history-substring-search.git ~/.zsh-theme-and-plugins/zsh-history-substring-search
 
 # Set pypi mirror
-RUN pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple && \
+RUN sudo pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple --upgrade pip && \
+    pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple && \
     sudo pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 
 # Copy all config files to home directory
