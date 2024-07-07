@@ -27,19 +27,20 @@ RUN sed -i -E "s/http:\/\/(archive|security).ubuntu.com/http:\/\/mirrors.tuna.ts
     yes | unminimize && \
     # Install some basic tools
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
-        sudo man-db locales \
-        # for `file` command
-        file \
-        # for `ping`, `ip` and `nc` command
-        iputils-ping iproute2 netcat \
+        # for missing commands
+        sudo man-db locales file iputils-ping iproute2 netcat \
         # for `killall` and `strace` command
         psmisc strace \
+        # useful tools
         vim tmux git gdb gdb-multiarch wget curl python3 python3-pip \
         zsh zsh-autosuggestions zsh-syntax-highlighting \
+        ranger ripgrep \
         # required if you want to compile or run 32-bit programs
         gcc-multilib g++-multilib \
-        # for debug symbols
-        libc6-dbg && \
+        # glibc debugging symbols
+        libc6-dbg \
+        # OpenSSL (required for compiling python from source)
+        libssl-dev && \
     # Clean up apt cache
     rm -rf /var/lib/apt/lists/*
 
@@ -51,8 +52,8 @@ RUN \
     # Add an unpriviladged user.
     useradd -m nuke -s $(which zsh) && echo "nuke:nuke" | chpasswd && \
     echo "nuke ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/nuke && \
-    sed -i '/^Defaults.*env_reset/i Defaults\tenv_keep="http_proxy https_proxy no_proxy"' /etc/sudoers && \
-    mkdir /home/nuke/work && chown nuke:nuke /home/nuke/work 
+    sed -i '/^Defaults.*env_reset/i Defaults\tenv_keep="http_proxy https_proxy no_proxy"' /etc/sudoers
+    # mkdir /home/nuke/work && chown nuke:nuke /home/nuke/work 
 
 # Copy all config files to home directory
 COPY --chown=nuke files/ /home/nuke
@@ -69,6 +70,10 @@ RUN \
     sudo pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple --upgrade pip && \
     pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple && \
     sudo pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple && \
+    # Install ipython
+    pip3 install --no-cache-dir --no-warn-script-location ipython && \
+    # Install pyenv
+    curl https://pyenv.run | bash && \
     # Do not generate gdb_history file
     echo 'set history save off' >> ~/.gdbinit
 
@@ -76,9 +81,6 @@ RUN \
 # In the following part we will install commonly used tools,
 # feel free to comment out any of the tools you don't need.
 # ----------------------------------------------------------
-
-# Install ipython
-RUN pip3 install --no-cache-dir --no-warn-script-location ipython
 
 # Install pwntools
 RUN pip3 install --no-cache-dir --no-warn-script-location --upgrade pwntools
@@ -167,13 +169,8 @@ RUN sudo apt-get update && \
 #     cd .. && sudo rm -rf .binwalk
 
 # Install wabt
-# FIXME: There are some problems with the installation of wabt.
-RUN sudo apt-get update && sudo apt-get install -y cmake && \
-    git clone --recursive https://github.com/WebAssembly/wabt ~/.wabt && \
-    cd ~/.wabt && git submodule update --init && \
-    mkdir build && cd build && \
-    cmake .. && cmake --build . && sudo cmake --install . && \
-    cd .. && rm -rf .wabt
+# Install semgrep
+RUN pip3 install semgrep
 
 # Clear the cache and we do not need `NOPASSWD` anymore
 RUN sudo apt-get clean && sudo apt-get autoremove -y && \
