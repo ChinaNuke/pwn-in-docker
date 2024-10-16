@@ -8,7 +8,7 @@ fi
 # Lines configured by zsh-newuser-install
 HISTFILE=~/.histfile
 HISTSIZE=20000
-SAVEHIST=$HISTFILE
+SAVEHIST=$HISTSIZE
 #setopt SHARE_HISTORY # Share history between all sessions.
 setopt HIST_EXPIRE_DUPS_FIRST # Expire duplicate entries first when trimming history.
 setopt HIST_IGNORE_DUPS # Don't record an entry that was just recorded again.
