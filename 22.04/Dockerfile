@@ -2,7 +2,7 @@
 #   $ sudo docker build -t pwn-image --build-arg http_proxy=http://172.17.0.1:7891 --build-arg https_proxy=http://172.17.0.1:7891 .
 #
 #   # SSH forwarding, and share the host's network.
-#   $ sudo docker run --cap-add=SYS_PTRACE --security-opt seccomp=unconfined --network host -e SSH_AUTH_SOCK=$SSH_AUTH_SOCK -v $SSH_AUTH_SOCK:$SSH_AUTH_SOCK -it --name pwn22 -v $HOME/MyWorkspace:/home/nuke/work pwn-image
+#   $ sudo docker run --priviledged --security-opt seccomp=unconfined --network host -e SSH_AUTH_SOCK=$SSH_AUTH_SOCK -v $SSH_AUTH_SOCK:$SSH_AUTH_SOCK -v /home/peng/MyWorkspace:/home/nuke/work -v /home/peng/mytmp:/home/nuke/mytmp --device=/dev/nbd0 --name pwn22 -it pwn-image
 #   $ sudo docker start -ai pwn22
 # 
 # Note:
@@ -11,6 +11,7 @@
 #   - `-e SSH_AUTH_SOCK=$SSH_AUTH_SOCK -v $SSH_AUTH_SOCK:$SSH_AUTH_SOCK` for 
 #     ssh forwarding.
 #   - `--network host` to share the host's network.
+#   - `--cap-add=SYS_ADMIN --cap-add=MKNOD` and `--device=/dev/nbd0` for qemu-nbd.
 
 FROM ubuntu:22.04
 MAINTAINER ChinaNuke <chinanuke@nuke666.cn>
@@ -30,7 +31,7 @@ RUN sed -i -E "s/http:\/\/(archive|security).ubuntu.com/http:\/\/mirrors.tuna.ts
         # for missing commands
         sudo man-db locales file iputils-ping iproute2 netcat \
         # for `killall` and `strace` command
-        psmisc strace \
+        psmisc strace ltrace \
         # useful tools
         vim tmux git gdb gdb-multiarch wget curl python3 python3-pip \
         zsh zsh-autosuggestions zsh-syntax-highlighting \
@@ -94,15 +95,20 @@ RUN git clone --depth=1 https://github.com/pwndbg/pwndbg.git ~/.pwndbg && \
     cd ~/.pwndbg && ./setup.sh && \
     sudo rm -rf /var/lib/apt/lists/*
 
+# Install GEP (GDB Enhanced Prompt)
+# 有 bug，远程调试时不能 attach 到子进程。
+# RUN git clone --depth 1 https://github.com/lebr0nli/GEP.git ~/.local/share/GEP && \
+#     ~/.local/share/GEP/install.sh
+
 # Install unblob
 RUN pip3 install --no-cache-dir --no-warn-script-location unblob && \
     # install the extractors
     sudo apt-get update && \
     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y android-sdk-libsparse-utils e2fsprogs p7zip-full unar zlib1g-dev liblzo2-dev lzop lziprecover libhyperscan-dev zstd lz4 && \
-    # squashfs support
-    curl -L -o /tmp/sasquatch_1.0.deb "https://github.com/onekey-sec/sasquatch/releases/download/sasquatch-v4.5.1-4/sasquatch_1.0_$(dpkg --print-architecture).deb" && \
-    sudo dpkg -i /tmp/sasquatch_1.0.deb || sudo apt-get -f install -y && \
-    rm /tmp/sasquatch_1.0.deb && \
+    # squashfs support (binwalk v3 will install this)
+    # curl -L -o /tmp/sasquatch_1.0.deb "https://github.com/onekey-sec/sasquatch/releases/download/sasquatch-v4.5.1-4/sasquatch_1.0_$(dpkg --print-architecture).deb" && \
+    # sudo dpkg -i /tmp/sasquatch_1.0.deb || sudo apt-get -f install -y && \
+    # rm /tmp/sasquatch_1.0.deb && \
     # clean up
     sudo rm -rf /var/lib/apt/lists/*
 
@@ -154,21 +160,47 @@ RUN sudo apt-get update && \
     sudo gem install one_gadget seccomp-tools && \
     sudo rm -rf /var/lib/apt/lists/*
 
-# Install binwalk
-# NOTE: binwalk is now deprecated. Use `unblob` instead.
-# RUN git clone --depth=1 https://github.com/devttys0/binwalk.git ~/.binwalk && \
+# Binwalk maintained by community
+# RUN git clone --depth=1 https://github.com/OSPG/binwalk.git ~/.binwalk && \
 #     cd ~/.binwalk && \
-#     # Fix the python not found error.
 #     sed -i '/REQUIRED_UTILS="wget tar python"/cREQUIRED_UTILS="wget tar python3"' deps.sh && \
-#     # Fix the "'if' clause does not guard" error.
-#     # https://github.com/devttys0/sasquatch/pull/47
-#     # https://github.com/ffontaine/binwalk/commit/ba8f5e3eaf3d701be8b2d9a49fd0b616d63c5f85
-#     sed -i 's?(cd sasquatch \&\& \$SUDO ./build.sh)?(cd sasquatch \&\& wget https://github.com/devttys0/sasquatch/pull/47.patch -O - | patch -p1 \&\& \$SUDO ./build.sh)?' deps.sh && \
 #     ./deps.sh --yes && \
 #     sudo python3 ./setup.py install && \
 #     cd .. && sudo rm -rf .binwalk
 
+# Binwalk v3
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && \
+    . "$HOME/.cargo/env" && \
+    git clone --depth=1 https://github.com/ReFirmLabs/binwalk.git /tmp/binwalk && \
+    cd /tmp/binwalk && \
+    sudo apt-get update && \
+    # required by ubuntu.sh
+    sudo apt-get install -y unzip libbz2-dev && \
+    # fix permissions
+    sed -i 's/apt-get/sudo apt-get/g' dependencies/ubuntu.sh && \
+    sed -i 's/dpkg/sudo dpkg/g' dependencies/ubuntu.sh && \
+    sed -i 's/cp/sudo cp/g' dependencies/src.sh && \
+    sed -i 's/make install/sudo make install/g' dependencies/src.sh && \
+    ./dependencies/ubuntu.sh && \
+    cargo build --release && \
+    cp target/release/binwalk ~/.local/bin/binwalk && \
+    cd .. && rm -rf /tmp/binwalk && \
+    sudo rm -rf /var/lib/apt/lists/*
+
 # Install wabt
+# RUN sudo apt-get update && sudo apt-get install -y cmake && \
+#     git clone --recursive https://github.com/WebAssembly/wabt ~/.wabt && \
+#     cd ~/.wabt && git submodule update --init && \
+#     mkdir build && cd build && \
+#     cmake .. && cmake --build . && sudo cmake --install . && \
+#     cd .. && rm -rf .wabt
+
+# Install pycdc (python bytecode disassembler)
+# RUN git clone --depth=1 https://github.com/zrax/pycdc.git && cd pycdc && \
+#     mkdir build && cd build && cmake .. && \
+#     make && make check && sudo make install && \
+#     cd ../.. && rm -rf pycdc
+
 # Install semgrep
 RUN pip3 install semgrep
 
