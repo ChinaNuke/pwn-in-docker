@@ -1,8 +1,21 @@
 # Usage:
-#   $ sudo docker build -t pwn-image --build-arg http_proxy=http://172.17.0.1:7891 --build-arg https_proxy=http://172.17.0.1:7891 .
+# 
+#   $ sudo docker build -t pwn-image .
 #
-#   # SSH forwarding, and share the host's network.
-#   $ sudo docker run --priviledged --security-opt seccomp=unconfined --network host -e SSH_AUTH_SOCK=$SSH_AUTH_SOCK -v $SSH_AUTH_SOCK:$SSH_AUTH_SOCK -v /home/peng/MyWorkspace:/home/nuke/work -v /home/peng/mytmp:/home/nuke/mytmp --device=/dev/nbd0 --name pwn22 -it pwn-image
+#   To use proxy, add these arguments:
+#     --build-arg http_proxy=http://172.17.0.1:7891 --build-arg https_proxy=http://172.17.0.1:7891
+#
+#   $ sudo docker run --privileged --security-opt seccomp=unconfined \
+#       --network host \
+#       -e SSH_AUTH_SOCK=$SSH_AUTH_SOCK \
+#       -v $SSH_AUTH_SOCK:$SSH_AUTH_SOCK \
+#       -v /home/$USER/MyWorkspace:/home/nuke/work \
+#       -v /home/$USER/mytmp:/home/nuke/mytmp \
+#       -v /home/$USER/Projects:/home/nuke/projects \
+#       --name pwn22 \
+#       --hostname docker --add-host docker:127.0.0.1 \
+#       -it pwn-image
+# 
 #   $ sudo docker start -ai pwn22
 # 
 # Note:
@@ -20,8 +33,8 @@ ENV LANG=en_US.UTF-8 \
     TZ=Asia/Shanghai
 
 # Install necessary packages
+# (build time: about 4min)
 # Change the apt source to speed up the download process
-# (time: about 4min)
 RUN sed -i -E "s/http:\/\/(archive|security).ubuntu.com/http:\/\/mirrors.tuna.tsinghua.edu.cn/g" /etc/apt/sources.list && \
     apt-get update && \
     # Unminimize the ubuntu installation
@@ -34,8 +47,7 @@ RUN sed -i -E "s/http:\/\/(archive|security).ubuntu.com/http:\/\/mirrors.tuna.ts
         psmisc strace ltrace \
         # useful tools
         vim tmux git gdb gdb-multiarch wget curl python3 python3-pip \
-        zsh zsh-autosuggestions zsh-syntax-highlighting \
-        ranger ripgrep \
+        ranger ripgrep fd-find htop nmap dnsutils \
         # required if you want to compile or run 32-bit programs
         gcc-multilib g++-multilib \
         # glibc debugging symbols
@@ -45,13 +57,30 @@ RUN sed -i -E "s/http:\/\/(archive|security).ubuntu.com/http:\/\/mirrors.tuna.ts
     # Clean up apt cache
     rm -rf /var/lib/apt/lists/*
 
+# Tools to analyse non-x86 binaries
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        qemu-user-static binutils-mips-linux-gnu binutils-arm-linux-gnueabi && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install fish shell
+RUN apt-get update && \ 
+    DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common && \
+    apt-add-repository ppa:fish-shell/release-3 && \
+    apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y fish && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create a symlink `fd` to `fdfind`
+RUN ln -s $(which fdfind) /usr/local/bin/fd
+
 # Basic settings
 RUN \
     # Set the locale
     sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
     locale-gen && \
     # Add an unpriviladged user.
-    useradd -m nuke -s $(which zsh) && echo "nuke:nuke" | chpasswd && \
+    useradd -m nuke -s $(which fish) && echo "nuke:nuke" | chpasswd && \
     echo "nuke ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/nuke && \
     sed -i '/^Defaults.*env_reset/i Defaults\tenv_keep="http_proxy https_proxy no_proxy"' /etc/sudoers
     # mkdir /home/nuke/work && chown nuke:nuke /home/nuke/work 
@@ -59,14 +88,13 @@ RUN \
 # Copy all config files to home directory
 COPY --chown=nuke files/ /home/nuke
 
+RUN echo '127.0.0.1 docker' >> /etc/hosts
+
+# Make all following operations as unprivileged user
 USER nuke
 WORKDIR /home/nuke
 
 RUN \
-    # Install zsh theme and plugins
-    mkdir ~/.zsh-theme-and-plugins && \
-    git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ~/.zsh-theme-and-plugins/powerlevel10k && \
-    git clone --depth=1 https://github.com/zsh-users/zsh-history-substring-search.git ~/.zsh-theme-and-plugins/zsh-history-substring-search && \
     # Set pypi mirror
     sudo pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple --upgrade pip && \
     pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple && \
