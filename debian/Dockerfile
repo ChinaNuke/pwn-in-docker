@@ -8,13 +8,12 @@
 #
 #   $ podman run \
 #       --privileged --security-opt seccomp=unconfined \
-#       --userns=keep-id \
 #       --network host \
 #       -e SSH_AUTH_SOCK=$SSH_AUTH_SOCK \
 #       -v $SSH_AUTH_SOCK:$SSH_AUTH_SOCK \
-#       -v /home/$USER/MyWorkspace:/home/nuke/work:Z \
-#       -v /home/$USER/mytmp:/home/nuke/mytmp:Z \
-#       -v /home/$USER/Projects:/home/nuke/projects:Z \
+#       -v /home/$USER/MyWorkspace:/root/work \
+#       -v /home/$USER/mytmp:/root/mytmp \
+#       -v /home/$USER/Projects:/root/projects \
 #       --name pwn-bookworm \
 #       --hostname pwn --add-host pwn:127.0.0.1 \
 #       -it pwn-image
@@ -28,8 +27,8 @@
 #     ssh forwarding.
 #   - `--network host` to share the host's network.
 #   - `--cap-add=SYS_ADMIN --cap-add=MKNOD` and `--device=/dev/nbd0` for qemu-nbd.
-#   - `--userns=keep-id` to map container user to host user (Podman rootless).
-#   - `:Z` suffix on volumes for SELinux relabeling.
+#   - In rootless podman, container root maps to host user, so files created
+#     as root inside will be owned by your user on the host.
 
 # ----------------------------------------------------------
 # Metadata
@@ -100,21 +99,18 @@ RUN \
     # Set the locale
     sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
     locale-gen && \
-    # Add an unprivileged user.
-    useradd -m nuke -s $(which fish) && echo "nuke:nuke" | chpasswd && \
-    echo "nuke ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/nuke && \
-    # Preserve proxy environment variables for sudo
-    sed -i '/^Defaults.*env_reset/i Defaults\tenv_keep="http_proxy https_proxy no_proxy"' /etc/sudoers && \
+    # Set root's shell to fish
+    chsh -s $(which fish) && \
     # Create a symlink for fd-find
     ln -s $(which fdfind) /usr/local/bin/fd && \
     # Hostname setup
     echo '127.0.0.1 pwn' >> /etc/hosts
 
 # ----------------------------------------------------------
-# Make all following operations as unprivileged user
+# Make all following operations as root
 # ----------------------------------------------------------
-USER nuke
-WORKDIR /home/nuke
+USER root
+WORKDIR /root
 
 # ----------------------------------------------------------
 # Set up uv and pip mirror
@@ -159,8 +155,8 @@ RUN ~/.local/bin/uv tool install --no-cache semgrep
 RUN ~/.local/bin/uv tool install --no-cache unblob
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
-    sudo apt-get update && \
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
         android-sdk-libsparse-utils e2fsprogs p7zip-full unar \
         zlib1g-dev liblzo2-dev lzop lziprecover libhyperscan-dev zstd lz4
 
@@ -221,13 +217,13 @@ RUN git clone --depth=1 https://github.com/pwndbg/pwndbg.git ~/.pwndbg && \
 # ------------------------------------------
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
-    sudo apt-get update && \
-    sudo apt-get install -y autoconf && \
+    apt-get update && \
+    apt-get install -y autoconf && \
     git clone --depth=1 https://github.com/NixOS/patchelf.git && \
     cd patchelf && \
     ./bootstrap.sh && ./configure && \
     make -j `nproc` && \
-    sudo make install && \
+    make install && \
     cd .. && rm -rf patchelf
 
 # ------------------------------------------
@@ -259,14 +255,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     git clone --depth=1 https://github.com/ReFirmLabs/binwalk.git /tmp/binwalk && \
     cd /tmp/binwalk && \
-    sudo apt-get update && \
+    apt-get update && \
     # Build dependencies for cargo
-    sudo apt-get install -y unzip libbz2-dev pkg-config && \
-    # Fix permissions for running as non-root
-    sed -i 's/apt-get/sudo apt-get/g' dependencies/ubuntu.sh && \
-    sed -i 's/dpkg/sudo dpkg/g' dependencies/ubuntu.sh && \
-    sed -i 's/cp/sudo cp/g' dependencies/src.sh && \
-    sed -i 's/make install/sudo make install/g' dependencies/src.sh && \
+    apt-get install -y unzip libbz2-dev pkg-config && \
     # Patch ubuntu.sh for Debian compatibility
     sed -i 's/unrar/unrar-free/g' dependencies/ubuntu.sh && \
     sed -i 's/7zip-standalone/p7zip-full/g' dependencies/ubuntu.sh && \
@@ -297,16 +288,9 @@ RUN . "$HOME/.cargo/env" && cargo install binwalk
     # radare2/sys/install.sh
 
 # ------------------------------------------
-# Post installation configurations
-# ------------------------------------------
-RUN \
-    # Drop NOPASSWD for sudo to improve security
-    sudo sed -i "/^nuke/s/NOPASSWD://" /etc/sudoers.d/nuke
-
-# ------------------------------------------
 # Copy config files to home directory
 # ------------------------------------------
-COPY --chown=nuke files/home_config /home/nuke
-COPY --chown=nuke files/config /home/nuke/.config
+COPY files/home_config /root
+COPY files/config /root/.config
 
 CMD ["tmux"]
