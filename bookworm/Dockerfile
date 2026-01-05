@@ -1,33 +1,37 @@
 # Usage:
-# 
-#   $ sudo docker build -t pwn-image .
+#
+#   $ podman build -t pwn-image .
 #
 #   To use proxy, add these arguments:
-#     --build-arg http_proxy=http://172.17.0.1:7891 --build-arg https_proxy=http://172.17.0.1:7891
+#     --build-arg http_proxy=http://host.containers.internal:7891 \
+#     --build-arg https_proxy=http://host.containers.internal:7891
 #
-#   $ sudo docker run --privileged --security-opt seccomp=unconfined \
+#   $ podman run --privileged --security-opt seccomp=unconfined \
+#       --userns=keep-id \
 #       --network host \
 #       -e SSH_AUTH_SOCK=$SSH_AUTH_SOCK \
 #       -v $SSH_AUTH_SOCK:$SSH_AUTH_SOCK \
-#       -v /home/$USER/MyWorkspace:/home/nuke/work \
-#       -v /home/$USER/mytmp:/home/nuke/mytmp \
-#       -v /home/$USER/Projects:/home/nuke/projects \
-#       --name pwn22 \
-#       --hostname docker --add-host docker:127.0.0.1 \
+#       -v /home/$USER/MyWorkspace:/home/nuke/work:Z \
+#       -v /home/$USER/mytmp:/home/nuke/mytmp:Z \
+#       -v /home/$USER/Projects:/home/nuke/projects:Z \
+#       --name pwn-bookworm \
+#       --hostname pwn --add-host pwn:127.0.0.1 \
 #       -it pwn-image
-# 
-#   $ sudo docker start -ai pwn22
-# 
+#
+#   $ podman start -ai pwn-bookworm
+#
 # Note:
-#   - Add `--cap-add=SYS_PTRACE --security-opt seccomp=unconfined` for gdb to 
+#   - Add `--cap-add=SYS_PTRACE --security-opt seccomp=unconfined` for gdb to
 #     debug running process.
-#   - `-e SSH_AUTH_SOCK=$SSH_AUTH_SOCK -v $SSH_AUTH_SOCK:$SSH_AUTH_SOCK` for 
+#   - `-e SSH_AUTH_SOCK=$SSH_AUTH_SOCK -v $SSH_AUTH_SOCK:$SSH_AUTH_SOCK` for
 #     ssh forwarding.
 #   - `--network host` to share the host's network.
 #   - `--cap-add=SYS_ADMIN --cap-add=MKNOD` and `--device=/dev/nbd0` for qemu-nbd.
+#   - `--userns=keep-id` to map container user to host user (Podman rootless).
+#   - `:Z` suffix on volumes for SELinux relabeling.
 
-FROM ubuntu:22.04
-MAINTAINER ChinaNuke <chinanuke@nuke666.cn>
+FROM debian:bookworm
+LABEL maintainer="ChinaNuke <chinanuke@nuke666.cn>"
 
 ENV LANG=en_US.UTF-8 \
     TZ=Asia/Shanghai
@@ -35,10 +39,8 @@ ENV LANG=en_US.UTF-8 \
 # Install necessary packages
 # (build time: about 4min)
 # Change the apt source to speed up the download process
-RUN sed -i -E "s/http:\/\/(archive|security).ubuntu.com/http:\/\/mirrors.tuna.tsinghua.edu.cn/g" /etc/apt/sources.list && \
+RUN sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list.d/debian.sources && \
     apt-get update && \
-    # Unminimize the ubuntu installation
-    yes | unminimize && \
     # Install some basic tools
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
         # for missing commands
@@ -63,10 +65,13 @@ RUN apt-get update && \
         qemu-user-static binutils-mips-linux-gnu binutils-arm-linux-gnueabi && \
     rm -rf /var/lib/apt/lists/*
 
-# Install fish shell
-RUN apt-get update && \ 
-    DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common && \
-    apt-add-repository ppa:fish-shell/release-3 && \
+# Install fish shell from openSUSE Build Service
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y curl gnupg && \
+    echo 'deb http://download.opensuse.org/repositories/shells:/fish/Debian_12/ /' \
+        > /etc/apt/sources.list.d/shells:fish.list && \
+    curl -fsSL https://download.opensuse.org/repositories/shells:fish/Debian_12/Release.key \
+        | gpg --dearmor > /etc/apt/trusted.gpg.d/shells_fish.gpg && \
     apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y fish && \
     rm -rf /var/lib/apt/lists/*
@@ -88,7 +93,7 @@ RUN \
 # Copy all config files to home directory
 COPY --chown=nuke files/ /home/nuke
 
-RUN echo '127.0.0.1 docker' >> /etc/hosts
+RUN echo '127.0.0.1 pwn' >> /etc/hosts
 
 # Make all following operations as unprivileged user
 USER nuke
@@ -231,6 +236,10 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && \
 
 # Install semgrep
 RUN pip3 install semgrep
+
+# Install radare2
+RUN git clone --depth=1 https://github.com/radareorg/radare2 && \
+    radare2/sys/install.sh
 
 # Clear the cache and we do not need `NOPASSWD` anymore
 RUN sudo apt-get clean && sudo apt-get autoremove -y && \
