@@ -6,7 +6,8 @@
 #     --build-arg http_proxy=http://host.containers.internal:7891 \
 #     --build-arg https_proxy=http://host.containers.internal:7891
 #
-#   $ podman run --privileged --security-opt seccomp=unconfined \
+#   $ podman run \
+#       --privileged --security-opt seccomp=unconfined \
 #       --userns=keep-id \
 #       --network host \
 #       -e SSH_AUTH_SOCK=$SSH_AUTH_SOCK \
@@ -305,10 +306,7 @@ RUN \
 # ------------------------------------------
 # Copy config files to home directory
 # ------------------------------------------
-COPY --chown=nuke files/pwn.conf /home/nuke/.pwn.conf
-COPY --chown=nuke files/gdbinit /home/nuke/.gdbinit
-COPY --chown=nuke files/nvim.lua /home/nuke/.config/nvim/init.lua
-COPY --chown=nuke files/tmux.conf /home/nuke/.tmux.conf
-COPY --chown=nuke files/config.fish /home/nuke/.config/fish/config.fish
+COPY --chown=nuke files/home_config /home/nuke
+COPY --chown=nuke files/config /home/nuke/.config
 
 CMD ["tmux"]
