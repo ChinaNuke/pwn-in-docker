@@ -115,8 +115,6 @@ RUN \
 USER nuke
 WORKDIR /home/nuke
 
-COPY --chown=nuke files/fish.config /home/nuke/.config/fish/config.fish
-
 # ----------------------------------------------------------
 # Set up uv and pip mirror
 # ----------------------------------------------------------
@@ -130,7 +128,6 @@ RUN \
     # Install uv (fast Python package manager)
     curl -LsSf https://astral.sh/uv/install.sh | sh && \
     ~/.local/bin/uv venv ~/.venv && \
-    echo 'source $HOME/.venv/bin/activate.fish' >> ~/.config/fish/config.fish && \
     # Install ipython as a tool
     ~/.local/bin/uv tool install --no-cache ipython
 
@@ -309,8 +306,9 @@ RUN \
 # Copy config files to home directory
 # ------------------------------------------
 COPY --chown=nuke files/pwn.conf /home/nuke/.pwn.conf
-COPY --chown=nuke files/tmux.conf /home/nuke/.tmux.conf
 COPY --chown=nuke files/gdbinit /home/nuke/.gdbinit
 COPY --chown=nuke files/nvim.lua /home/nuke/.config/nvim/init.lua
+COPY --chown=nuke files/tmux.conf /home/nuke/.tmux.conf
+COPY --chown=nuke files/config.fish /home/nuke/.config/fish/config.fish
 
 CMD ["tmux"]
